@@ -1,0 +1,1 @@
+VisualStudio2019\x64\Release\denoise_training.exe data\signal.raw data\noise.raw 500000 training\training.f32

@@ -1,0 +1,10 @@
+
+DIALCT = 'mysql'
+DRIVER = 'mysqldb'
+USERNAME = 'root'
+PASSWORD = '123456'
+HOST = 'localhost'
+PORT = '3306'
+DBNAME = 'graduation'
+SQLALCHEMY_DATABASE_URI = '{}+{}://{}:{}@{}:{}/{}?charset=utf8'.format(DIALCT,DRIVER,USERNAME,PASSWORD,HOST,PORT,DBNAME)
+SQLALCHEMY_TRACK_MODIFICATIONS = False
