@@ -597,7 +597,9 @@ int main(int argc, char **argv) {
 
 	// loop control and echo
     if (count==maxCount) break;
-    if ((count%1000)==0) fprintf(stderr, "%d\r", count);
+    if ((count%1000)==0) {
+		fprintf(stderr, "%d\r", count);
+	}
 
 	// random gain/filter/freq_range for speech and noise
     if (++gain_change_count > 2821) { // 7 x 13 x 31

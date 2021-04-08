@@ -1,8 +1,12 @@
+import subprocess
 from datetime import datetime
 import os
 import wave
+from typing import cast
+
 from flask import Flask, request, jsonify
 import pymysql
+from soundfile import read
 from sqlalchemy.sql.elements import Null
 
 from init import db, app
@@ -351,13 +355,13 @@ def upaudio():
         # 返回值
         dictsum = {}
         dictsum['status'] = "1"
-        dictsum['information'] = "上传成功"
+        dictsum['message'] = "上传成功"
         dictsum['url'] = "http://localhost:8900/static/" + audiofile.filename
     except Exception as e:
         print(e)
         dictsum = {}
         dictsum['status'] = "0"
-        dictsum['information'] = "上传失败"
+        dictsum['message'] = "上传失败"
     return jsonify(dictsum)
 
 #降噪处理
@@ -367,29 +371,53 @@ def rnn():
     path = request.form['path']
     username = request.form['username']
     print(path)
-    # 降噪后音频路径 http://localhost:8900/static/demo_input_2new.wav
-    newpath=path[0:-4]+'new'+path[-4:]
-
-    # 从本地获取音频文件的路径
-    input_file='D:\\2021graduate\\flask\\static\\'+path[29:]
-    out_file=input_file[0:-4]+'new.raw'
-
+    mp3 = os.path.dirname(os.path.abspath("app.py")) + os.sep + "static" + os.sep + path[29:]
+    input_file=mp3
+    if(path[-3:]=='mp3'):
+      newpath = path[0:-4] + 'mp3new' + path[-4:]
+      # 从本地获取MP3音频文件的路径
+      # MP3文件转换成wav文件
+      cmd = "ffmpeg -i " + mp3 + " " + mp3[0:-4] + "mp3.wav"  # 将input_path路径下所有音频文件转为.wav文件
+      subprocess.call(cmd, shell=True)
+      # 从本地获取转换后的wav音频文件的路径
+      input_file = mp3[0:-4] + 'mp3.wav'
+    elif(path[-3:]=='wav'):
+        newpath = path[0:-4] + 'new' + path[-4:]
+    out_file = input_file[0:-4] + 'new.raw'
+    x, fs = read(input_file)
+    f = wave.open(input_file)
+    channels = f.getnchannels()
+    sampwidth = f.getsampwidth()
     # 进行降噪处理
-    main = "D:\\2021graduate\\flask\\rnnoise-master\\VisualStudio2019\\x64\\Release\\rnnoise_demo.exe"  # c++生成的exe文件执行位置
+    main = os.path.dirname(os.path.abspath("app.py")) + os.sep +"rnnoise-master\\VisualStudio2019\\x64\\Release\\rnnoise_demo.exe"  # c++生成的exe文件执行位置
     a = os.system(main + ' ' + input_file + ' ' + out_file)  # 调用os.sysytem函数，函数以空格隔开这里参数为input_file,out_file
 
-    # raw转为wav
-    inf_str = out_file
-    outf_str = out_file[0:-4]+'.wav'
-    sampleRate = 48000
-    pcmfile = open(inf_str, 'rb')
-    pcmdata = pcmfile.read()
-    wavfile = wave.open(outf_str, 'wb')
-    wavfile.setframerate(sampleRate)
-    wavfile.setsampwidth(2)  # 16位采样即为2字节
-    wavfile.setnchannels(1)
-    wavfile.writeframes(pcmdata)
-    wavfile.close()
+    if (path[-3:] == 'wav'):
+      # raw转为wav
+      inf_str = out_file
+      outf_str = out_file[0:-4]+'.wav'
+      sampleRate = fs
+      pcmfile = open(inf_str, 'rb')
+      pcmdata = pcmfile.read()
+      wavfile = wave.open(outf_str, 'wb')
+      wavfile.setframerate(sampleRate)
+      wavfile.setsampwidth(sampwidth)  # 16位采样即为2字节
+      wavfile.setnchannels(channels)
+      wavfile.writeframes(pcmdata)
+      wavfile.close()
+    elif (path[-3:] == 'mp3'):
+        # raw转为mp3
+        inf_str = out_file
+        outf_str = out_file[0:-4] + '.mp3'
+        sampleRate = fs
+        pcmfile = open(inf_str, 'rb')
+        pcmdata = pcmfile.read()
+        wavfile = wave.open(outf_str, 'wb')
+        wavfile.setframerate(sampleRate)
+        wavfile.setsampwidth(sampwidth)  # 16位采样即为2字节
+        wavfile.setnchannels(channels)
+        wavfile.writeframes(pcmdata)
+        wavfile.close()
 
     #判断处理结果是否成功，并返回处理后的音频路径
     if (a!=0) :
@@ -427,27 +455,23 @@ def delete():
     ans = db.session.execute(sql)
     getid = ans.fetchall()  # 获取所有数据
     userid = getid[0][0]
-    print(type(userid))
-    userid=str(userid)
+
     #删除该用户的该音频
-    try:
-        sql = "delete from audioinfo where userid = '" + userid + "'" + " and title = '" + musicname + "'";
-        print(sql)
-        db.session.execute(sql)
-        db.session.commit()
-        project_file_path = os.path.dirname(
-            os.path.abspath("app.py")) + os.sep + "static" + os.sep
-        file_path = os.path.join(project_file_path, musicname)
-        os.remove(file_path)
-        # 返回值
-        dictsum = {}
-        dictsum['status'] = "1"
-        dictsum['message'] = "删除成功"
-    except Exception as e:
-        print(e)
-        dictsum = {}
-        dictsum['status'] = "0"
-        dictsum['message'] = "删除失败"
+    sql = "delete from audioinfo where userid = '" + str(userid) + "'" + " and title = '" + musicname + "'";
+    print(sql)
+    db.session.execute(sql)
+    db.session.commit()
+    project_file_path = os.path.dirname(os.path.abspath("app.py")) + os.sep + "static" + os.sep
+    file_path = os.path.join(project_file_path, musicname)
+    os.remove(file_path)
+    if(musicname[-7:-4]=='new'):
+        file_path1 = os.path.join(project_file_path, musicname[0:-4]+'.raw')
+        os.remove(file_path1)
+    # 返回值
+    dictsum = {}
+    dictsum['status'] = "1"
+    dictsum['message'] = "删除成功"
+
     return jsonify(dictsum)
 
 #获取用户信息
@@ -514,5 +538,5 @@ def modifyuser():
     return data1
 
 if __name__ == '__main__':
-
     app.run(debug=True, host='localhost', port=8900)
+

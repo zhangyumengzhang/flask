@@ -1,1 +1,0 @@
-D:\VSproject\rnnoise-master\VisualStudio2019\x64\Release\rnnoise_demo.exe data\demo_input.raw data\demo_output.raw
